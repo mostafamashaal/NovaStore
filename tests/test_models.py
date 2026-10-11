@@ -11,6 +11,8 @@ from src.models.order_status_history import OrderStatusHistory
 from src.models.payment import Payment
 from src.models.shipment import Shipment
 
+from src.models.ticket import Ticket
+
 def test_users_table_is_registered():
     assert "users" in Base.metadata.tables
 
@@ -147,6 +149,7 @@ def test_order_history_and_payment_relationships():
     assert OrderStatusHistory.order.property.back_populates == "status_history"
     assert Payment.order.property.back_populates == "payments"
 
+
 def test_shipment_model():
     assert "shipments" in Base.metadata.tables
 
@@ -158,9 +161,35 @@ def test_shipment_model():
     assert "orders.id" in foreign_key_targets
     assert Shipment.order.property.uselist is False
 
+
 def test_order_shipment_relationships():
     assert Order.shipments.property.uselist is True
     assert Shipment.order.property.uselist is False
 
     assert Order.shipments.property.back_populates == "order"
     assert Shipment.order.property.back_populates == "shipments"
+
+
+def test_ticket_model():
+    assert "tickets" in Base.metadata.tables
+
+    assert Ticket.__table__.c.ticket_number.unique is True
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in Ticket.__table__.foreign_keys
+    }
+
+    assert "customers.id" in foreign_key_targets
+    assert "conversations.id" in foreign_key_targets
+    assert "users.id" in foreign_key_targets
+
+    check_constraint_names = {
+        constraint.name
+        for constraint in Ticket.__table__.constraints
+        if constraint.__class__.__name__ == "CheckConstraint"
+    }
+
+    assert "tickets_category_check" in check_constraint_names
+    assert "tickets_priority_check" in check_constraint_names
+    assert "tickets_status_check" in check_constraint_names
