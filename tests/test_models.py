@@ -15,6 +15,8 @@ from src.models.ticket import Ticket
 from src.models.conversation import Conversation
 from src.models.message import Message
 from src.models.refund import Refund
+from src.models.document import Document
+from src.models.document_chunk import DocumentChunk
 
 def test_users_table_is_registered():
     assert "users" in Base.metadata.tables
@@ -292,3 +294,66 @@ def test_refund_constraints_and_relationships():
     assert Refund.ticket.property.uselist is False
     assert Refund.requester.property.uselist is False
     assert Refund.approver.property.uselist is False
+
+
+def test_document_model():
+    assert "documents" in Base.metadata.tables
+
+    assert list(Document.__table__.columns.keys()) == [
+        "id",
+        "title",
+        "file_name",
+        "document_type",
+        "source",
+        "uploaded_by",
+        "created_at",
+        "updated_at",
+    ]
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in Document.__table__.foreign_keys
+    }
+
+    assert "users.id" in foreign_key_targets
+
+
+def test_document_chunk_model():
+    assert "document_chunks" in Base.metadata.tables
+
+    assert list(DocumentChunk.__table__.columns.keys()) == [
+        "id",
+        "document_id",
+        "chunk_index",
+        "content",
+        "embedding",
+        "metadata",
+        "created_at",
+    ]
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in DocumentChunk.__table__.foreign_keys
+    }
+
+    assert "documents.id" in foreign_key_targets
+
+    document_fk = next(
+        foreign_key
+        for foreign_key in DocumentChunk.__table__.foreign_keys
+        if foreign_key.target_fullname == "documents.id"
+    )
+    assert document_fk.ondelete == "CASCADE"
+
+    assert DocumentChunk.document.property.uselist is False
+
+    unique_constraints = {
+        constraint.name
+        for constraint in DocumentChunk.__table__.constraints
+        if constraint.__class__.__name__ == "UniqueConstraint"
+    }
+
+    assert (
+        "document_chunks_document_id_chunk_index_key"
+        in unique_constraints
+    )

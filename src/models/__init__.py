@@ -13,6 +13,8 @@ from src.models.ticket import Ticket
 from src.models.conversation import Conversation
 from src.models.message import Message
 from src.models.refund import Refund
+from src.models.document import Document
+from src.models.document_chunk import DocumentChunk
 
 
 __all__ = [
@@ -30,4 +32,6 @@ __all__ = [
     "Conversation",
     "Message",
     "Refund",
+    "Document",
+    "DocumentChunk",
 ]
