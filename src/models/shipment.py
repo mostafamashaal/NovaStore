@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.models.order import Order
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,6 +16,13 @@ class Shipment(Base):
     """ORM model representing the existing shipments table."""
 
     __tablename__ = "shipments"
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'shipped', 'in_transit', 'delivered')",
+            name="shipments_status_check",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         PostgreSQLUUID(as_uuid=True),
