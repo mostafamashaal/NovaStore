@@ -1,11 +1,15 @@
-
 from datetime import datetime
 from typing import Any
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.agent_run import AgentRun
+    from src.models.approval import Approval
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
 
@@ -60,4 +64,14 @@ class ToolCall(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+    agent_run: Mapped["AgentRun"] = relationship(
+        "AgentRun",
+        back_populates="tool_calls",
+    )
+
+    approvals: Mapped[list["Approval"]] = relationship(
+        "Approval",
+        back_populates="tool_call",
     )

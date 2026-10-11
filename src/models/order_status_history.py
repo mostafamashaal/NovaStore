@@ -1,6 +1,10 @@
-
 from datetime import datetime
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.order import Order
+    from src.models.user import User
 
 from sqlalchemy import (
     CheckConstraint,
@@ -12,14 +16,6 @@ from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from src.models.order import Order
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from src.models.user import User
 
 
 class OrderStatusHistory(Base):
@@ -77,4 +73,8 @@ class OrderStatusHistory(Base):
         back_populates="status_history",
     )
 
-    changed_by_user: Mapped["User | None"] = relationship("User")
+    changed_by_user: Mapped["User | None"] = relationship(
+        "User",
+        back_populates="order_status_changes",
+        foreign_keys=[changed_by_user_id],
+    )

@@ -1,17 +1,15 @@
-
 from datetime import date, datetime
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.order import Order
 
 from sqlalchemy import Date, DateTime, ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from src.models.order import Order
-
 
 
 class Shipment(Base):
@@ -73,6 +71,6 @@ class Shipment(Base):
     )
 
     order: Mapped["Order"] = relationship(
-    "Order",
-    back_populates="shipments",
+        "Order",
+        back_populates="shipments",
     )

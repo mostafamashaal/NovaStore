@@ -1,7 +1,11 @@
-
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.inventory import Inventory
+    from src.models.order_item import OrderItem
 
 from sqlalchemy import (
     Boolean,
@@ -16,10 +20,6 @@ from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from src.models.inventory import Inventory
 
 
 class Product(Base):
@@ -87,4 +87,9 @@ class Product(Base):
         "Inventory",
         back_populates="product",
         uselist=False,
-    )    
+    )
+
+    order_items: Mapped[list["OrderItem"]] = relationship(
+        "OrderItem",
+        back_populates="product",
+    )

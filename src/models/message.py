@@ -1,11 +1,17 @@
 from datetime import datetime
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.conversation import Conversation
+    from src.models.user import User
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
+
 
 class Message(Base):
     """ORM model representing a single message in a conversation."""
@@ -54,4 +60,15 @@ class Message(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),
+    )
+
+    conversation: Mapped["Conversation"] = relationship(
+        "Conversation",
+        back_populates="messages",
+    )
+
+    sender_user: Mapped["User | None"] = relationship(
+        "User",
+        back_populates="sent_messages",
+        foreign_keys=[sender_user_id],
     )

@@ -1,7 +1,14 @@
-
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.order import Order
+    from src.models.customer import Customer
+    from src.models.user import User
+    from src.models.ticket import Ticket
+
 
 from sqlalchemy import (
     CheckConstraint,
@@ -16,13 +23,7 @@ from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from src.models.order import Order
-    from src.models.customer import Customer
-    from src.models.user import User
-    from src.models.ticket import Ticket
 
 class Refund(Base):
     """ORM model representing the existing refunds table."""
@@ -106,14 +107,29 @@ class Refund(Base):
         nullable=True,
     )
 
-    order: Mapped["Order"] = relationship("Order")
-    customer: Mapped["Customer"] = relationship("Customer")
-    ticket: Mapped["Ticket | None"] = relationship("Ticket")
+    order: Mapped["Order"] = relationship(
+        "Order",
+        back_populates="refunds",
+    )
+
+    customer: Mapped["Customer"] = relationship(
+        "Customer",
+        back_populates="refunds",
+    )
+
+    ticket: Mapped["Ticket | None"] = relationship(
+        "Ticket",
+        back_populates="refunds",
+    )
+
     requester: Mapped["User | None"] = relationship(
         "User",
+        back_populates="requested_refunds",
         foreign_keys=[requested_by],
     )
+
     approver: Mapped["User | None"] = relationship(
         "User",
+        back_populates="approved_refunds",
         foreign_keys=[approved_by],
     )

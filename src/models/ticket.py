@@ -19,6 +19,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.models.customer import Customer
     from src.models.user import User
+    from src.models.conversation import Conversation
+    from src.models.refund import Refund
+    from src.models.approval import Approval
 
 
 class Ticket(Base):
@@ -114,9 +117,29 @@ class Ticket(Base):
         nullable=True,
     )
 
-    customer: Mapped["Customer"] = relationship("Customer")
+    customer: Mapped["Customer"] = relationship(
+        "Customer",
+        back_populates="tickets",
+    )
 
     assigned_agent: Mapped["User | None"] = relationship(
         "User",
+        back_populates="assigned_tickets",
         foreign_keys=[assigned_agent_id],
+    )
+
+    conversation: Mapped["Conversation | None"] = relationship(
+        "Conversation",
+        back_populates="tickets",
+        foreign_keys=[conversation_id],
+    )
+
+    refunds: Mapped[list["Refund"]] = relationship(
+        "Refund",
+        back_populates="ticket",
+    )
+
+    approvals: Mapped[list["Approval"]] = relationship(
+        "Approval",
+        back_populates="ticket",
     )

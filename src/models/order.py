@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from src.models.order_status_history import OrderStatusHistory
     from src.models.payment import Payment
     from src.models.shipment import Shipment
+    from src.models.refund import Refund
 
 
 class Order(Base):
@@ -81,7 +82,10 @@ class Order(Base):
         server_default=text("now()"),
     )
 
-    customer: Mapped["Customer"] = relationship("Customer")
+    customer: Mapped["Customer"] = relationship(
+        "Customer",
+        back_populates="orders",
+    )
 
     items: Mapped[list["OrderItem"]] = relationship(
         "OrderItem",
@@ -89,8 +93,8 @@ class Order(Base):
     )
 
     status_history: Mapped[list["OrderStatusHistory"]] = relationship(
-    "OrderStatusHistory",
-    back_populates="order",
+        "OrderStatusHistory",
+        back_populates="order",
     )
 
     payments: Mapped[list["Payment"]] = relationship(
@@ -100,5 +104,10 @@ class Order(Base):
 
     shipments: Mapped[list["Shipment"]] = relationship(
         "Shipment",
+        back_populates="order",
+    )
+
+    refunds: Mapped[list["Refund"]] = relationship(
+        "Refund",
         back_populates="order",
     )

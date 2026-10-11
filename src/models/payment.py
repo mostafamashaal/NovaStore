@@ -1,7 +1,10 @@
-
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.order import Order
 
 from sqlalchemy import (
     CheckConstraint,
@@ -15,10 +18,6 @@ from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from src.models.order import Order
 
 
 class Payment(Base):

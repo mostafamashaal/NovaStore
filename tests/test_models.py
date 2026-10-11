@@ -205,6 +205,17 @@ def test_ticket_model():
     assert "tickets_status_check" in check_constraint_names
 
 
+
+def test_ticket_conversation_relationship():
+    from src.models.conversation import Conversation
+
+    relationship = Ticket.conversation.property
+
+    assert relationship.mapper.class_ is Conversation
+    assert relationship.uselist is False
+    assert relationship.local_columns == {Ticket.__table__.c.conversation_id}
+
+
 def test_conversation_model():
     assert "conversations" in Base.metadata.tables
 

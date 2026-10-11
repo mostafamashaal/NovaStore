@@ -1,7 +1,10 @@
-
 from datetime import datetime
 from typing import Any
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.document import Document
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, ForeignKey, Integer, Text, UniqueConstraint, text
@@ -62,4 +65,7 @@ class DocumentChunk(Base):
         server_default=text("now()"),
     )
 
-    document = relationship("Document")
+    document: Mapped["Document"] = relationship(
+        "Document",
+        back_populates="chunks",
+    )

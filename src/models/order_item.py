@@ -1,7 +1,11 @@
-
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.order import Order
+    from src.models.product import Product
 
 from sqlalchemy import (
     CheckConstraint,
@@ -15,14 +19,7 @@ from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from src.models.product import Product
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from src.models.order import Order
 
 class OrderItem(Base):
     """ORM model representing the existing order_items table."""
@@ -78,4 +75,7 @@ class OrderItem(Base):
         back_populates="items",
     )
 
-    product: Mapped["Product"] = relationship("Product")
+    product: Mapped["Product"] = relationship(
+        "Product",
+        back_populates="order_items",
+    )

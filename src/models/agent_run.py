@@ -1,7 +1,13 @@
-
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.conversation import Conversation
+    from src.models.customer import Customer
+    from src.models.tool_call import ToolCall
+    from src.models.approval import Approval
 
 from sqlalchemy import (
     CheckConstraint,
@@ -13,7 +19,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.base import Base
 
@@ -86,4 +92,24 @@ class AgentRun(Base):
     estimated_cost: Mapped[Decimal | None] = mapped_column(
         Numeric(12, 6),
         nullable=True,
+    )
+
+    conversation: Mapped["Conversation"] = relationship(
+        "Conversation",
+        back_populates="agent_runs",
+    )
+
+    customer: Mapped["Customer"] = relationship(
+        "Customer",
+        back_populates="agent_runs",
+    )
+
+    tool_calls: Mapped[list["ToolCall"]] = relationship(
+        "ToolCall",
+        back_populates="agent_run",
+    )
+
+    approvals: Mapped[list["Approval"]] = relationship(
+        "Approval",
+        back_populates="agent_run",
     )

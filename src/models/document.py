@@ -1,6 +1,10 @@
-
 from datetime import datetime
 from uuid import UUID
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.document_chunk import DocumentChunk
+    from src.models.user import User
 
 from sqlalchemy import DateTime, ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
@@ -57,4 +61,13 @@ class Document(Base):
         server_default=text("now()"),
     )
 
-    uploader = relationship("User")
+    uploader: Mapped["User"] = relationship(
+        "User",
+        back_populates="uploaded_documents",
+        foreign_keys=[uploaded_by],
+    )
+
+    chunks: Mapped[list["DocumentChunk"]] = relationship(
+        "DocumentChunk",
+        back_populates="document",
+    )
