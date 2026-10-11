@@ -12,6 +12,8 @@ from src.models.shipment import Shipment
 from src.models.ticket import Ticket
 from src.models.conversation import Conversation
 from src.models.message import Message
+from src.models.refund import Refund
+
 
 __all__ = [
     "Base",
@@ -27,4 +29,5 @@ __all__ = [
     "Ticket",
     "Conversation",
     "Message",
+    "Refund",
 ]

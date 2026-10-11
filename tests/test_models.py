@@ -14,6 +14,7 @@ from src.models.shipment import Shipment
 from src.models.ticket import Ticket
 from src.models.conversation import Conversation
 from src.models.message import Message
+from src.models.refund import Refund
 
 def test_users_table_is_registered():
     assert "users" in Base.metadata.tables
@@ -244,3 +245,50 @@ def test_message_model():
 
     assert "messages_sender_type_check" in check_constraint_names
     assert "messages_content_check" in check_constraint_names
+
+
+
+def test_refund_model():
+    assert "refunds" in Base.metadata.tables
+
+    assert list(Refund.__table__.columns.keys()) == [
+        "id",
+        "order_id",
+        "customer_id",
+        "ticket_id",
+        "amount",
+        "reason",
+        "status",
+        "requested_by",
+        "approved_by",
+        "requested_at",
+        "decided_at",
+        "completed_at",
+    ]
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in Refund.__table__.foreign_keys
+    }
+
+    assert "orders.id" in foreign_key_targets
+    assert "customers.id" in foreign_key_targets
+    assert "tickets.id" in foreign_key_targets
+    assert "users.id" in foreign_key_targets
+
+
+def test_refund_constraints_and_relationships():
+    check_constraint_names = {
+        constraint.name
+        for constraint in Refund.__table__.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+
+    assert "refunds_amount_check" in check_constraint_names
+    assert "refunds_status_check" in check_constraint_names
+
+    assert Refund.order.property.uselist is False
+    assert Refund.customer.property.uselist is False
+    assert Refund.ticket.property.uselist is False
+    assert Refund.requester.property.uselist is False
+    assert Refund.approver.property.uselist is False
