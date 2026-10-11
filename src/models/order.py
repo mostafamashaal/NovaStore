@@ -19,19 +19,12 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.models.customer import Customer
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
     from src.models.order_item import OrderItem
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
     from src.models.order_status_history import OrderStatusHistory
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
     from src.models.payment import Payment
+    from src.models.shipment import Shipment
+
+
 class Order(Base):
     """ORM model representing the existing orders table."""
 
@@ -102,5 +95,10 @@ class Order(Base):
 
     payments: Mapped[list["Payment"]] = relationship(
         "Payment",
+        back_populates="order",
+    )
+
+    shipments: Mapped[list["Shipment"]] = relationship(
+        "Shipment",
         back_populates="order",
     )

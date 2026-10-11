@@ -9,6 +9,7 @@ from src.models.order import Order
 from src.models.order_item import OrderItem
 from src.models.order_status_history import OrderStatusHistory
 from src.models.payment import Payment
+from src.models.shipment import Shipment
 
 def test_users_table_is_registered():
     assert "users" in Base.metadata.tables
@@ -145,3 +146,21 @@ def test_order_history_and_payment_relationships():
 
     assert OrderStatusHistory.order.property.back_populates == "status_history"
     assert Payment.order.property.back_populates == "payments"
+
+def test_shipment_model():
+    assert "shipments" in Base.metadata.tables
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in Shipment.__table__.foreign_keys
+    }
+
+    assert "orders.id" in foreign_key_targets
+    assert Shipment.order.property.uselist is False
+
+def test_order_shipment_relationships():
+    assert Order.shipments.property.uselist is True
+    assert Shipment.order.property.uselist is False
+
+    assert Order.shipments.property.back_populates == "order"
+    assert Shipment.order.property.back_populates == "shipments"
