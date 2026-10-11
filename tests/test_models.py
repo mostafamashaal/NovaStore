@@ -18,6 +18,8 @@ from src.models.refund import Refund
 from src.models.document import Document
 from src.models.document_chunk import DocumentChunk
 from src.models.agent_run import AgentRun
+from src.models.tool_call import ToolCall
+from sqlalchemy.dialects.postgresql import JSONB
 
 def test_users_table_is_registered():
     assert "users" in Base.metadata.tables
@@ -402,3 +404,41 @@ def test_agent_run_estimated_cost_precision():
     assert cost_column.type.precision == 12
     assert cost_column.type.scale == 6
     assert cost_column.nullable is True
+
+
+def test_tool_call_model():
+    assert "tool_calls" in Base.metadata.tables
+
+    assert list(ToolCall.__table__.columns.keys()) == [
+        "id",
+        "agent_run_id",
+        "tool_name",
+        "arguments",
+        "result",
+        "status",
+        "error_message",
+        "latency_ms",
+        "created_at",
+    ]
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in ToolCall.__table__.foreign_keys
+    }
+
+    assert "agent_runs.id" in foreign_key_targets
+
+
+def test_tool_call_column_types_and_nullability():
+    columns = ToolCall.__table__.c
+
+    assert isinstance(columns.arguments.type, JSONB)
+    assert isinstance(columns.result.type, JSONB)
+
+    assert columns.arguments.nullable is False
+    assert columns.result.nullable is True
+    assert columns.error_message.nullable is True
+    assert columns.latency_ms.nullable is True
+
+    assert columns.tool_name.type.length == 100
+    assert columns.status.type.length == 30

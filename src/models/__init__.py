@@ -16,6 +16,7 @@ from src.models.refund import Refund
 from src.models.document import Document
 from src.models.document_chunk import DocumentChunk
 from src.models.agent_run import AgentRun
+from src.models.tool_call import ToolCall
 
 
 __all__ = [
@@ -36,4 +37,5 @@ __all__ = [
     "Document",
     "DocumentChunk",
     "AgentRun",
+    "ToolCall",
 ]
