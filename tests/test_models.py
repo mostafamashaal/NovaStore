@@ -17,6 +17,7 @@ from src.models.message import Message
 from src.models.refund import Refund
 from src.models.document import Document
 from src.models.document_chunk import DocumentChunk
+from src.models.agent_run import AgentRun
 
 def test_users_table_is_registered():
     assert "users" in Base.metadata.tables
@@ -357,3 +358,47 @@ def test_document_chunk_model():
         "document_chunks_document_id_chunk_index_key"
         in unique_constraints
     )
+
+
+def test_agent_run_model():
+    assert "agent_runs" in Base.metadata.tables
+
+    assert list(AgentRun.__table__.columns.keys()) == [
+        "id",
+        "conversation_id",
+        "customer_id",
+        "status",
+        "model",
+        "started_at",
+        "completed_at",
+        "error_message",
+        "input_tokens",
+        "output_tokens",
+        "estimated_cost",
+    ]
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in AgentRun.__table__.foreign_keys
+    }
+
+    assert "conversations.id" in foreign_key_targets
+    assert "customers.id" in foreign_key_targets
+
+
+def test_agent_run_status_constraint():
+    check_constraint_names = {
+        constraint.name
+        for constraint in AgentRun.__table__.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+
+    assert "agent_runs_status_check" in check_constraint_names
+
+
+def test_agent_run_estimated_cost_precision():
+    cost_column = AgentRun.__table__.c.estimated_cost
+
+    assert cost_column.type.precision == 12
+    assert cost_column.type.scale == 6
+    assert cost_column.nullable is True

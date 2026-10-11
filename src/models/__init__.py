@@ -15,6 +15,7 @@ from src.models.message import Message
 from src.models.refund import Refund
 from src.models.document import Document
 from src.models.document_chunk import DocumentChunk
+from src.models.agent_run import AgentRun
 
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     "Refund",
     "Document",
     "DocumentChunk",
+    "AgentRun",
 ]
