@@ -20,6 +20,8 @@ from src.models.document_chunk import DocumentChunk
 from src.models.agent_run import AgentRun
 from src.models.tool_call import ToolCall
 from sqlalchemy.dialects.postgresql import JSONB
+from src.models.approval import Approval
+from src.models.audit_log import AuditLog
 
 def test_users_table_is_registered():
     assert "users" in Base.metadata.tables
@@ -442,3 +444,99 @@ def test_tool_call_column_types_and_nullability():
 
     assert columns.tool_name.type.length == 100
     assert columns.status.type.length == 30
+
+
+def test_approval_model():
+    assert "approvals" in Base.metadata.tables
+
+    assert list(Approval.__table__.columns.keys()) == [
+        "id",
+        "agent_run_id",
+        "tool_call_id",
+        "ticket_id",
+        "action",
+        "status",
+        "requested_at",
+        "decided_at",
+        "decided_by",
+        "reason",
+    ]
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in Approval.__table__.foreign_keys
+    }
+
+    assert "agent_runs.id" in foreign_key_targets
+    assert "tool_calls.id" in foreign_key_targets
+    assert "tickets.id" in foreign_key_targets
+    assert "users.id" in foreign_key_targets
+
+
+def test_approval_constraints_and_nullability():
+    check_constraint_names = {
+        constraint.name
+        for constraint in Approval.__table__.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+
+    assert "approvals_status_check" in check_constraint_names
+
+    columns = Approval.__table__.c
+
+    assert columns.agent_run_id.nullable is False
+    assert columns.action.nullable is False
+    assert columns.status.nullable is False
+    assert columns.requested_at.nullable is False
+
+    assert columns.tool_call_id.nullable is True
+    assert columns.ticket_id.nullable is True
+    assert columns.decided_at.nullable is True
+    assert columns.decided_by.nullable is True
+    assert columns.reason.nullable is True
+
+    assert columns.action.type.length == 100
+    assert columns.status.type.length == 30
+
+
+
+def test_audit_log_model():
+    assert "audit_logs" in Base.metadata.tables
+
+    assert list(AuditLog.__table__.columns.keys()) == [
+        "id",
+        "actor_user_id",
+        "actor_type",
+        "action",
+        "entity_type",
+        "entity_id",
+        "metadata",
+        "created_at",
+    ]
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in AuditLog.__table__.foreign_keys
+    }
+
+    assert "users.id" in foreign_key_targets
+
+
+def test_audit_log_column_types_and_defaults():
+    columns = AuditLog.__table__.c
+
+    assert columns.actor_user_id.nullable is True
+    assert columns.actor_type.nullable is False
+    assert columns.action.nullable is False
+    assert columns.entity_type.nullable is False
+    assert columns.entity_id.nullable is True
+    assert columns.metadata.nullable is True
+
+    assert columns.actor_type.type.length == 30
+    assert columns.action.type.length == 100
+    assert columns.entity_type.type.length == 100
+
+    assert isinstance(columns.metadata.type, JSONB)
+
+    assert columns.created_at.nullable is False
+    assert columns.created_at.server_default is not None

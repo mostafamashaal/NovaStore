@@ -17,6 +17,8 @@ from src.models.document import Document
 from src.models.document_chunk import DocumentChunk
 from src.models.agent_run import AgentRun
 from src.models.tool_call import ToolCall
+from src.models.approval import Approval
+from src.models.audit_log import AuditLog
 
 
 __all__ = [
@@ -38,4 +40,6 @@ __all__ = [
     "DocumentChunk",
     "AgentRun",
     "ToolCall",
+    "Approval",
+    "AuditLog",
 ]
