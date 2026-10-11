@@ -5,6 +5,8 @@ from src.models.customer import Customer
 
 from src.models.inventory import Inventory
 from src.models.product import Product
+from src.models.order import Order
+from src.models.order_item import OrderItem
 
 def test_users_table_is_registered():
     assert "users" in Base.metadata.tables
@@ -45,4 +47,49 @@ def test_inventory_quantity_check_constraints():
 
     assert "inventory_available_quantity_check" in check_constraints
     assert "inventory_reserved_quantity_check" in check_constraints
-    
+
+
+def test_orders_table_and_customer_foreign_key():
+    assert "orders" in Base.metadata.tables
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in Order.__table__.foreign_keys
+    }
+
+    assert "customers.id" in foreign_key_targets
+    assert Order.__table__.c.order_number.unique is True
+
+
+def test_order_status_and_amount_constraints():
+    check_constraints = {
+        constraint.name
+        for constraint in Order.__table__.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+
+    assert "orders_status_check" in check_constraints
+    assert "orders_total_amount_check" in check_constraints
+
+
+def test_order_items_foreign_keys():
+    assert "order_items" in Base.metadata.tables
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in OrderItem.__table__.foreign_keys
+    }
+
+    assert "orders.id" in foreign_key_targets
+    assert "products.id" in foreign_key_targets
+
+
+def test_order_item_quantity_and_price_constraints():
+    check_constraints = {
+        constraint.name
+        for constraint in OrderItem.__table__.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+
+    assert "order_items_quantity_check" in check_constraints
+    assert "order_items_unit_price_check" in check_constraints
