@@ -10,6 +10,8 @@ from src.models.order_status_history import OrderStatusHistory
 from src.models.payment import Payment
 from src.models.shipment import Shipment
 from src.models.ticket import Ticket
+from src.models.conversation import Conversation
+from src.models.message import Message
 
 __all__ = [
     "Base",
@@ -23,4 +25,6 @@ __all__ = [
     "Payment",
     "Shipment",
     "Ticket",
+    "Conversation",
+    "Message",
 ]

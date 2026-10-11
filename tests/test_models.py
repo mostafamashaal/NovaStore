@@ -12,6 +12,8 @@ from src.models.payment import Payment
 from src.models.shipment import Shipment
 
 from src.models.ticket import Ticket
+from src.models.conversation import Conversation
+from src.models.message import Message
 
 def test_users_table_is_registered():
     assert "users" in Base.metadata.tables
@@ -193,3 +195,52 @@ def test_ticket_model():
     assert "tickets_category_check" in check_constraint_names
     assert "tickets_priority_check" in check_constraint_names
     assert "tickets_status_check" in check_constraint_names
+
+
+def test_conversation_model():
+    assert "conversations" in Base.metadata.tables
+
+    assert list(Conversation.__table__.columns.keys()) == [
+        "id",
+        "customer_id",
+        "status",
+        "created_at",
+        "updated_at",
+    ]
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in Conversation.__table__.foreign_keys
+    }
+
+    assert "customers.id" in foreign_key_targets
+
+
+def test_message_model():
+    assert "messages" in Base.metadata.tables
+
+    assert list(Message.__table__.columns.keys()) == [
+        "id",
+        "conversation_id",
+        "sender_type",
+        "sender_user_id",
+        "content",
+        "created_at",
+    ]
+
+    foreign_key_targets = {
+        foreign_key.target_fullname
+        for foreign_key in Message.__table__.foreign_keys
+    }
+
+    assert "conversations.id" in foreign_key_targets
+    assert "users.id" in foreign_key_targets
+
+    check_constraint_names = {
+        constraint.name
+        for constraint in Message.__table__.constraints
+        if constraint.__class__.__name__ == "CheckConstraint"
+    }
+
+    assert "messages_sender_type_check" in check_constraint_names
+    assert "messages_content_check" in check_constraint_names
