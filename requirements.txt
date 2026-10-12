@@ -25,3 +25,4 @@ typing_extensions==4.16.0
 tzdata==2026.5
 uvicorn==0.54.0
 pgvector==0.5.1
+httpx2==2.13.1
