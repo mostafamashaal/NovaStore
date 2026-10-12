@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 
+from src.api.routes.health import router as health_router
+
 
 app = FastAPI(
     title="NovaStore API",
@@ -7,8 +9,4 @@ app = FastAPI(
     version="0.1.0",
 )
 
-
-@app.get("/health")
-def health_check() -> dict[str, str]:
-    """Return the basic health status of the API."""
-    return {"status": "ok"}
+app.include_router(health_router)
