@@ -52,3 +52,8 @@ def test_database_health_check_returns_unavailable(mock_connect):
     assert response.json() == {
         "detail": {"database": "unavailable"}
     }
+
+def test_unknown_route_returns_404():
+    response = client.get("/does-not-exist")
+
+    assert response.status_code == 404
