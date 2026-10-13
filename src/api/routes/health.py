@@ -1,8 +1,10 @@
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-from fastapi import APIRouter, HTTPException
+from sqlalchemy.orm import Session
 
-from src.db.database import engine
+from src.db.dependencies import get_db
+
 
 router = APIRouter()
 
@@ -12,13 +14,14 @@ def health_check() -> dict[str, str]:
     """Return the basic health status of the API."""
     return {"status": "ok"}
 
+
 @router.get("/health/database")
-def database_health_check() -> dict[str, str]:
+def database_health_check(
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
     """Check whether the database is reachable."""
     try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
-
+        db.execute(text("SELECT 1"))
         return {"database": "ok"}
 
     except SQLAlchemyError:
