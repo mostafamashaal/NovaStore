@@ -26,3 +26,9 @@ tzdata==2026.5
 uvicorn==0.54.0
 pgvector==0.5.1
 httpx2==2.13.1
+argon2-cffi==25.1.0
+argon2-cffi-bindings==26.1.0
+cffi==2.1.1
+pwdlib==0.3.1
+pycparser==3.11
+PyJWT==2.15.1
