@@ -61,3 +61,23 @@ def test_unknown_route_returns_404():
     response = client.get("/does-not-exist")
 
     assert response.status_code == 404
+
+
+def test_database_health_check_closes_session():
+    mock_session = MagicMock()
+
+    def override_get_db():
+        try:
+            yield mock_session
+        finally:
+            mock_session.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        response = client.get("/health/database")
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert response.status_code == 200
+    mock_session.close.assert_called_once_with()
