@@ -2,11 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.api.schemas.auth import LoginRequest, TokenResponse
+from src.api.schemas.auth import (
+    CurrentUserResponse,
+    LoginRequest,
+    TokenResponse,
+)
 from src.db.dependencies import get_db
 from src.models.user import User
 from src.security.passwords import verify_password
 from src.security.tokens import create_access_token
+from src.security.dependencies import get_current_user
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -49,3 +54,12 @@ def login(
     access_token = create_access_token(user.id)
 
     return TokenResponse(access_token=access_token)
+
+
+@router.get("/me", response_model=CurrentUserResponse)
+def read_current_user(
+    current_user: User = Depends(get_current_user),
+) -> CurrentUserResponse:
+    """Return the authenticated user's safe profile information."""
+
+    return current_user

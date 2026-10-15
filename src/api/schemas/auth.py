@@ -1,4 +1,6 @@
+from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import (
     BaseModel,
@@ -34,3 +36,15 @@ class TokenResponse(BaseModel):
 
     access_token: str
     token_type: Literal["bearer"] = "bearer"
+
+
+class CurrentUserResponse(BaseModel):
+    """Safe public representation of the authenticated user."""
+
+    id: UUID
+    email: EmailStr
+    role: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
