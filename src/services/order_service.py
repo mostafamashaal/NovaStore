@@ -1,4 +1,3 @@
-
 from uuid import UUID
 
 from src.models.order import Order
@@ -23,3 +22,10 @@ class OrderService:
             return None
 
         return order
+
+    def list_orders_for_customer(
+        self,
+        customer_id: UUID,
+    ) -> list[Order]:
+        """Return all orders belonging to a customer."""
+        return self.order_repository.list_by_customer(customer_id)
