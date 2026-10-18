@@ -169,3 +169,116 @@ def test_list_my_orders_requires_authentication(
     assert response.status_code == 401
     db.scalar.assert_not_called()
     db.scalars.assert_not_called()
+
+
+def test_get_my_order_returns_order_with_items(
+    customer_orders_api_client,
+):
+    client, db = customer_orders_api_client
+    user = make_user()
+    customer = make_customer(user.id)
+
+    item = SimpleNamespace(
+        product_id=uuid4(),
+        quantity=2,
+        unit_price=Decimal("649.99"),
+    )
+    order = make_order(customer.id)
+    order.items = [item]
+
+    db.scalar.side_effect = [customer, order]
+
+    def override_get_current_user():
+        return user
+
+    original_user_override = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    try:
+        response = client.get(f"/customers/me/orders/{order.id}")
+    finally:
+        if original_user_override is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = original_user_override
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["id"] == str(order.id)
+    assert data["order_number"] == order.order_number
+    assert data["total_amount"] == "1299.99"
+    assert data["items"] == [
+        {
+            "product_id": str(item.product_id),
+            "quantity": 2,
+            "unit_price": "649.99",
+        }
+    ]
+    assert "customer_id" not in data
+
+
+def test_get_my_order_returns_404_for_another_customers_order(
+    customer_orders_api_client,
+):
+    client, db = customer_orders_api_client
+    user = make_user()
+    customer = make_customer(user.id)
+    order = make_order(customer_id=uuid4())
+
+    db.scalar.side_effect = [customer, order]
+
+    def override_get_current_user():
+        return user
+
+    original_user_override = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    try:
+        response = client.get(f"/customers/me/orders/{order.id}")
+    finally:
+        if original_user_override is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = original_user_override
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Order not found"
+
+
+def test_get_my_order_returns_404_when_order_does_not_exist(
+    customer_orders_api_client,
+):
+    client, db = customer_orders_api_client
+    user = make_user()
+    customer = make_customer(user.id)
+
+    db.scalar.side_effect = [customer, None]
+
+    def override_get_current_user():
+        return user
+
+    original_user_override = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    try:
+        response = client.get(f"/customers/me/orders/{uuid4()}")
+    finally:
+        if original_user_override is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = original_user_override
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Order not found"
+
+
+def test_get_my_order_requires_authentication(
+    customer_orders_api_client,
+):
+    client, db = customer_orders_api_client
+
+    response = client.get(f"/customers/me/orders/{uuid4()}")
+
+    assert response.status_code == 401
+    db.scalar.assert_not_called()

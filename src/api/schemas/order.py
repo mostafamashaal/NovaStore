@@ -15,3 +15,19 @@ class OrderSummaryResponse(BaseModel):
     status: str
     total_amount: Decimal
     created_at: datetime
+
+
+class OrderItemResponse(BaseModel):
+    """Public API representation of an item in an order."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    product_id: UUID
+    quantity: int
+    unit_price: Decimal
+
+
+class OrderDetailResponse(OrderSummaryResponse):
+    """Public API representation of an order with its items."""
+
+    items: list[OrderItemResponse]
