@@ -8,18 +8,21 @@ from src.api.schemas.order import (
     OrderDetailResponse,
     OrderSummaryResponse,
 )
+from src.api.schemas.order_status_history import (
+    OrderStatusHistoryResponse,
+)
+from src.api.schemas.refund import RefundResponse
+from src.api.schemas.shipment import ShipmentResponse
 from src.db.dependencies import get_db
 from src.models.user import User
 from src.repositories.customer_repository import CustomerRepository
 from src.repositories.order_repository import OrderRepository
+from src.repositories.refund_repository import RefundRepository
+from src.repositories.shipment_repository import ShipmentRepository
 from src.security.dependencies import get_current_user
 from src.services.customer_service import CustomerService
 from src.services.order_service import OrderService
-from src.api.schemas.order_status_history import (
-    OrderStatusHistoryResponse,
-)
-from src.api.schemas.shipment import ShipmentResponse
-from src.repositories.shipment_repository import ShipmentRepository
+from src.services.refund_service import RefundService
 from src.services.shipment_service import ShipmentService
 
 
@@ -185,3 +188,45 @@ def list_my_order_shipments(
         )
 
     return shipments
+
+
+@router.get(
+    "/me/orders/{order_id}/refunds",
+    response_model=list[RefundResponse],
+)
+def list_my_order_refunds(
+    order_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[RefundResponse]:
+    """Return refund history for an order owned by the current customer."""
+    customer_repository = CustomerRepository(db)
+    customer_service = CustomerService(customer_repository)
+
+    customer = customer_service.get_customer_by_user_id(current_user.id)
+
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer profile not found",
+        )
+
+    order_repository = OrderRepository(db)
+    refund_repository = RefundRepository(db)
+    refund_service = RefundService(
+        order_repository=order_repository,
+        refund_repository=refund_repository,
+    )
+
+    refunds = refund_service.list_refunds_for_customer(
+        order_id=order_id,
+        customer_id=customer.id,
+    )
+
+    if refunds is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    return refunds
