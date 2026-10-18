@@ -2,6 +2,7 @@ from uuid import UUID
 
 from src.models.order import Order
 from src.repositories.order_repository import OrderRepository
+from src.models.order_status_history import OrderStatusHistory
 
 
 class OrderService:
@@ -29,3 +30,16 @@ class OrderService:
     ) -> list[Order]:
         """Return all orders belonging to a customer."""
         return self.order_repository.list_by_customer(customer_id)
+
+    def get_status_history_for_customer(
+        self,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> list[OrderStatusHistory] | None:
+        """Return status history only if the order belongs to the customer."""
+        order = self.order_repository.get_by_id(order_id)
+
+        if order is None or order.customer_id != customer_id:
+            return None
+
+        return self.order_repository.list_status_history(order_id)

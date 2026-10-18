@@ -282,3 +282,159 @@ def test_get_my_order_requires_authentication(
 
     assert response.status_code == 401
     db.scalar.assert_not_called()
+
+
+def test_get_my_order_status_history_returns_history(
+    customer_orders_api_client,
+):
+    client, db = customer_orders_api_client
+    user = make_user()
+    customer = make_customer(user.id)
+    order = make_order(customer.id)
+
+    history_entry = SimpleNamespace(
+        id=uuid4(),
+        order_id=order.id,
+        old_status="processing",
+        new_status="shipped",
+        changed_at=datetime(2026, 10, 15, 12, 30, tzinfo=timezone.utc),
+        changed_by_user_id=uuid4(),
+        changed_by_type="system",
+    )
+
+    db.scalar.side_effect = [customer, order]
+    db.scalars.return_value.all.return_value = [history_entry]
+
+    def override_get_current_user():
+        return user
+
+    original_user_override = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    try:
+        response = client.get(
+            f"/customers/me/orders/{order.id}/history"
+        )
+    finally:
+        if original_user_override is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = original_user_override
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "id": str(history_entry.id),
+            "old_status": "processing",
+            "new_status": "shipped",
+            "changed_at": "2026-10-15T12:30:00Z",
+        }
+    ]
+    assert "changed_by_user_id" not in response.json()[0]
+    assert "changed_by_type" not in response.json()[0]
+
+
+def test_get_my_order_status_history_returns_empty_list(
+    customer_orders_api_client,
+):
+    client, db = customer_orders_api_client
+    user = make_user()
+    customer = make_customer(user.id)
+    order = make_order(customer.id)
+
+    db.scalar.side_effect = [customer, order]
+    db.scalars.return_value.all.return_value = []
+
+    def override_get_current_user():
+        return user
+
+    original_user_override = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    try:
+        response = client.get(
+            f"/customers/me/orders/{order.id}/history"
+        )
+    finally:
+        if original_user_override is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = original_user_override
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_my_order_status_history_rejects_another_customers_order(
+    customer_orders_api_client,
+):
+    client, db = customer_orders_api_client
+    user = make_user()
+    customer = make_customer(user.id)
+    order = make_order(customer_id=uuid4())
+
+    db.scalar.side_effect = [customer, order]
+
+    def override_get_current_user():
+        return user
+
+    original_user_override = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    try:
+        response = client.get(
+            f"/customers/me/orders/{order.id}/history"
+        )
+    finally:
+        if original_user_override is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = original_user_override
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Order not found"
+    db.scalars.assert_not_called()
+
+
+def test_get_my_order_status_history_returns_404_for_missing_order(
+    customer_orders_api_client,
+):
+    client, db = customer_orders_api_client
+    user = make_user()
+    customer = make_customer(user.id)
+
+    db.scalar.side_effect = [customer, None]
+
+    def override_get_current_user():
+        return user
+
+    original_user_override = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    try:
+        response = client.get(
+            f"/customers/me/orders/{uuid4()}/history"
+        )
+    finally:
+        if original_user_override is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = original_user_override
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Order not found"
+    db.scalars.assert_not_called()
+
+
+def test_get_my_order_status_history_requires_authentication(
+    customer_orders_api_client,
+):
+    client, db = customer_orders_api_client
+
+    response = client.get(
+        f"/customers/me/orders/{uuid4()}/history"
+    )
+
+    assert response.status_code == 401
+    db.scalar.assert_not_called()
+    db.scalars.assert_not_called()

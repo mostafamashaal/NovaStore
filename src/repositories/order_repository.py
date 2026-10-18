@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from src.models.order import Order
+from src.models.order_status_history import OrderStatusHistory
 
 
 class OrderRepository:
@@ -37,3 +38,18 @@ class OrderRepository:
             .where(Order.id == order_id)
         )
         return self.session.scalar(statement)
+
+    def list_status_history(
+        self,
+        order_id: UUID,
+    ) -> list[OrderStatusHistory]:
+        """Return status changes for an order in chronological order."""
+        statement = (
+            select(OrderStatusHistory)
+            .where(OrderStatusHistory.order_id == order_id)
+            .order_by(
+                OrderStatusHistory.changed_at.asc(),
+                OrderStatusHistory.id.asc(),
+            )
+        )
+        return list(self.session.scalars(statement).all())
