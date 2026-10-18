@@ -18,6 +18,9 @@ from src.services.order_service import OrderService
 from src.api.schemas.order_status_history import (
     OrderStatusHistoryResponse,
 )
+from src.api.schemas.shipment import ShipmentResponse
+from src.repositories.shipment_repository import ShipmentRepository
+from src.services.shipment_service import ShipmentService
 
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
@@ -140,3 +143,45 @@ def read_my_order_status_history(
         )
 
     return history
+
+
+@router.get(
+    "/me/orders/{order_id}/shipments",
+    response_model=list[ShipmentResponse],
+)
+def list_my_order_shipments(
+    order_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ShipmentResponse]:
+    """Return shipment tracking information for the customer's order."""
+    customer_repository = CustomerRepository(db)
+    customer_service = CustomerService(customer_repository)
+
+    customer = customer_service.get_customer_by_user_id(current_user.id)
+
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer profile not found",
+        )
+
+    order_repository = OrderRepository(db)
+    shipment_repository = ShipmentRepository(db)
+    shipment_service = ShipmentService(
+        order_repository=order_repository,
+        shipment_repository=shipment_repository,
+    )
+
+    shipments = shipment_service.list_shipments_for_customer(
+        order_id=order_id,
+        customer_id=customer.id,
+    )
+
+    if shipments is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    return shipments

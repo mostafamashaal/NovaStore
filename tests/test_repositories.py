@@ -1,11 +1,14 @@
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 from src.models.customer import Customer
 from src.models.order import Order
 from src.models.product import Product
+from src.models.shipment import Shipment
 from src.repositories.customer_repository import CustomerRepository
 from src.repositories.order_repository import OrderRepository
 from src.repositories.product_repository import ProductRepository
+from src.repositories.shipment_repository import ShipmentRepository
 
 
 def test_product_repository_get_by_id():
@@ -130,3 +133,23 @@ def test_customer_repository_list_customers():
 
     assert result == customers
     session.scalars.assert_called_once()
+
+
+def test_shipment_repository_list_by_order():
+    session = MagicMock()
+    order_id = uuid4()
+    shipments = [
+        MagicMock(spec=Shipment),
+        MagicMock(spec=Shipment),
+    ]
+    session.scalars.return_value.all.return_value = shipments
+
+    repository = ShipmentRepository(session)
+
+    result = repository.list_by_order(order_id)
+
+    assert result == shipments
+    session.scalars.assert_called_once()
+
+    statement = session.scalars.call_args.args[0]
+    assert order_id in statement.compile().params.values()
