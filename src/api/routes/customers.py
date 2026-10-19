@@ -13,17 +13,20 @@ from src.api.schemas.order_status_history import (
 )
 from src.api.schemas.refund import RefundResponse
 from src.api.schemas.shipment import ShipmentResponse
+from src.api.schemas.ticket import TicketResponse
 from src.db.dependencies import get_db
 from src.models.user import User
 from src.repositories.customer_repository import CustomerRepository
 from src.repositories.order_repository import OrderRepository
 from src.repositories.refund_repository import RefundRepository
 from src.repositories.shipment_repository import ShipmentRepository
+from src.repositories.ticket_repository import TicketRepository
 from src.security.dependencies import get_current_user
 from src.services.customer_service import CustomerService
 from src.services.order_service import OrderService
 from src.services.refund_service import RefundService
 from src.services.shipment_service import ShipmentService
+from src.services.ticket_service import TicketService
 
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
@@ -230,3 +233,67 @@ def list_my_order_refunds(
         )
 
     return refunds
+
+
+@router.get(
+    "/me/tickets",
+    response_model=list[TicketResponse],
+)
+def list_my_tickets(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[TicketResponse]:
+    """Return support tickets belonging to the authenticated customer."""
+    customer_repository = CustomerRepository(db)
+    customer_service = CustomerService(customer_repository)
+
+    customer = customer_service.get_customer_by_user_id(current_user.id)
+
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer profile not found",
+        )
+
+    ticket_repository = TicketRepository(db)
+    ticket_service = TicketService(ticket_repository)
+
+    return ticket_service.list_tickets_for_customer(customer.id)
+
+
+@router.get(
+    "/me/tickets/{ticket_id}",
+    response_model=TicketResponse,
+)
+def read_my_ticket(
+    ticket_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TicketResponse:
+    """Return a support ticket only if it belongs to the current customer."""
+    customer_repository = CustomerRepository(db)
+    customer_service = CustomerService(customer_repository)
+
+    customer = customer_service.get_customer_by_user_id(current_user.id)
+
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer profile not found",
+        )
+
+    ticket_repository = TicketRepository(db)
+    ticket_service = TicketService(ticket_repository)
+
+    ticket = ticket_service.get_ticket_for_customer(
+        ticket_id=ticket_id,
+        customer_id=customer.id,
+    )
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    return ticket
