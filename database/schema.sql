@@ -259,6 +259,11 @@ CREATE TABLE tickets (
     resolved_at TIMESTAMPTZ
 );
 
+CREATE SEQUENCE ticket_number_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO CYCLE;
+
 --======================================
 --Refundes
 --======================================

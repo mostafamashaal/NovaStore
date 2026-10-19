@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from src.api.schemas.ticket import TicketCreateRequest
 from src.models.ticket import Ticket
 from src.repositories.ticket_repository import TicketRepository
 
@@ -26,4 +27,18 @@ class TicketService:
         return self.ticket_repository.get_by_id_for_customer(
             ticket_id=ticket_id,
             customer_id=customer_id,
+        )
+
+    def create_ticket_for_customer(
+        self,
+        customer_id: UUID,
+        ticket_data: TicketCreateRequest,
+    ) -> Ticket:
+        """Create a ticket for the specified customer."""
+        return self.ticket_repository.create(
+            customer_id=customer_id,
+            category=ticket_data.category,
+            priority=ticket_data.priority,
+            subject=ticket_data.subject,
+            description=ticket_data.description,
         )

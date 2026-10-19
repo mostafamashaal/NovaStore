@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from src.api.main import app
 from src.db.dependencies import get_db
 from src.security.dependencies import get_current_user
+from src.repositories.ticket_repository import TicketRepository
 
 
 @pytest.fixture
@@ -244,6 +245,248 @@ def test_get_my_ticket_requires_authentication(
     client, db = customer_tickets_api_client
 
     response = client.get(f"/customers/me/tickets/{uuid4()}")
+
+    assert response.status_code == 401
+    db.scalar.assert_not_called()
+
+
+def test_create_my_ticket_returns_created_ticket(
+    authenticated_customer_tickets,
+    monkeypatch,
+):
+    client, db, user, customer = authenticated_customer_tickets
+    created_records = []
+
+    def fake_create(
+        repository,
+        customer_id,
+        category,
+        priority,
+        subject,
+        description,
+    ):
+        created_records.append(
+            {
+                "customer_id": customer_id,
+                "category": category,
+                "priority": priority,
+                "subject": subject,
+                "description": description,
+            }
+        )
+        return SimpleNamespace(
+            id=uuid4(),
+            ticket_number="TKT-2026-00128",
+            category=category,
+            priority=priority,
+            status="open",
+            subject=subject,
+            description=description,
+            created_at=datetime(2026, 10, 19, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 10, 19, tzinfo=timezone.utc),
+            resolved_at=None,
+        )
+
+    monkeypatch.setattr(TicketRepository, "create", fake_create)
+    db.scalar.return_value = customer
+
+    response = client.post(
+        "/customers/me/tickets",
+        json={
+            "category": "shipping",
+            "priority": "high",
+            "subject": "Where is my order?",
+            "description": "My order has not arrived yet.",
+        },
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+
+    assert data["ticket_number"] == "TKT-2026-00128"
+    assert data["category"] == "shipping"
+    assert data["priority"] == "high"
+    assert data["status"] == "open"
+    assert data["subject"] == "Where is my order?"
+    assert data["description"] == "My order has not arrived yet."
+    assert data["resolved_at"] is None
+
+    assert "customer_id" not in data
+    assert "assigned_agent_id" not in data
+    assert "conversation_id" not in data
+
+    assert created_records == [
+        {
+            "customer_id": customer.id,
+            "category": "shipping",
+            "priority": "high",
+            "subject": "Where is my order?",
+            "description": "My order has not arrived yet.",
+        }
+    ]
+
+
+def test_create_my_ticket_defaults_priority_to_medium(
+    authenticated_customer_tickets,
+    monkeypatch,
+):
+    client, db, user, customer = authenticated_customer_tickets
+    captured = {}
+
+    def fake_create(
+        repository,
+        customer_id,
+        category,
+        priority,
+        subject,
+        description,
+    ):
+        captured["customer_id"] = customer_id
+        captured["priority"] = priority
+
+        return SimpleNamespace(
+            id=uuid4(),
+            ticket_number="TKT-2026-00128",
+            category=category,
+            priority=priority,
+            status="open",
+            subject=subject,
+            description=description,
+            created_at=datetime(2026, 10, 19, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 10, 19, tzinfo=timezone.utc),
+            resolved_at=None,
+        )
+
+    monkeypatch.setattr(TicketRepository, "create", fake_create)
+    db.scalar.return_value = customer
+
+    response = client.post(
+        "/customers/me/tickets",
+        json={
+            "category": "technical",
+            "subject": "App issue",
+            "description": "The application stops responding.",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["priority"] == "medium"
+    assert captured == {
+        "customer_id": customer.id,
+        "priority": "medium",
+    }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "category": "invalid_category",
+            "subject": "Help",
+            "description": "I need help.",
+        },
+        {
+            "category": "shipping",
+            "priority": "critical",
+            "subject": "Help",
+            "description": "I need help.",
+        },
+        {
+            "category": "shipping",
+            "subject": "   ",
+            "description": "I need help.",
+        },
+        {
+            "category": "shipping",
+            "subject": "x" * 256,
+            "description": "I need help.",
+        },
+        {
+            "category": "shipping",
+            "subject": "Help",
+            "description": "   ",
+        },
+        {
+            "category": "shipping",
+            "subject": "Help",
+            "description": "x" * 5001,
+        },
+    ],
+)
+def test_create_my_ticket_rejects_invalid_input(
+    authenticated_customer_tickets,
+    payload,
+):
+    client, db, user, customer = authenticated_customer_tickets
+
+    response = client.post("/customers/me/tickets", json=payload)
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "extra_field",
+    [
+        {"customer_id": str(uuid4())},
+        {"status": "resolved"},
+        {"assigned_agent_id": str(uuid4())},
+        {"ticket_number": "TKT-2026-99999"},
+    ],
+)
+def test_create_my_ticket_rejects_privileged_extra_fields(
+    authenticated_customer_tickets,
+    extra_field,
+):
+    client, db, user, customer = authenticated_customer_tickets
+
+    payload = {
+        "category": "shipping",
+        "subject": "Where is my order?",
+        "description": "My order has not arrived yet.",
+        **extra_field,
+    }
+
+    response = client.post("/customers/me/tickets", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_create_my_ticket_returns_404_when_customer_profile_is_missing(
+    authenticated_customer_tickets,
+    monkeypatch,
+):
+    client, db, user, customer = authenticated_customer_tickets
+    db.scalar.return_value = None
+    create_mock = MagicMock()
+    monkeypatch.setattr(TicketRepository, "create", create_mock)
+
+    response = client.post(
+        "/customers/me/tickets",
+        json={
+            "category": "shipping",
+            "subject": "Where is my order?",
+            "description": "My order has not arrived yet.",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Customer profile not found"
+    create_mock.assert_not_called()
+
+
+def test_create_my_ticket_requires_authentication(
+    customer_tickets_api_client,
+):
+    client, db = customer_tickets_api_client
+
+    response = client.post(
+        "/customers/me/tickets",
+        json={
+            "category": "shipping",
+            "subject": "Where is my order?",
+            "description": "My order has not arrived yet.",
+        },
+    )
 
     assert response.status_code == 401
     db.scalar.assert_not_called()

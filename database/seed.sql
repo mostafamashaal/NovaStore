@@ -110,6 +110,14 @@ INSERT INTO tickets (id,ticket_number,customer_id,conversation_id,assigned_agent
 ('20000000-0000-4000-8000-000000000002','TKT-2026-00125','9581cd4f-0f8e-4e04-966f-5d45440c6ef3','f0000000-0000-4000-8000-000000000001','aab4d793-8c91-40d1-b183-c2c4a207abbc','shipping','medium','resolved','Shipping status inquiry','Customer requested an update for order NS-10003.','2026-10-03 12:00:00+03'),
 ('20000000-0000-4000-8000-000000000003','TKT-2026-00126','9581cd4f-0f8e-4e04-966f-5d45440c6ef3','f0000000-0000-4000-8000-000000000003',NULL,'technical','low','closed','Monitor product question','Customer asked about the NovaView 27 4K for productivity.','2026-10-04 10:00:00+03');
 
+SELECT setval(
+    'ticket_number_seq',
+    COALESCE(MAX(SPLIT_PART(ticket_number, '-', 3)::BIGINT), 1),
+    MAX(SPLIT_PART(ticket_number, '-', 3)::BIGINT) IS NOT NULL
+)
+FROM tickets
+WHERE ticket_number ~ '^TKT-[0-9]{4}-[0-9]+$';
+
 INSERT INTO refunds (id,order_id,customer_id,ticket_id,amount,reason,status,requested_by,approved_by,requested_at,decided_at,completed_at) VALUES
 ('30000000-0000-4000-8000-000000000001','a0000000-0000-4000-8000-000000000004','407eeb7b-7942-410f-a28e-68287fe0fb14','20000000-0000-4000-8000-000000000001',1299.99,'Full refund for delivered laptop.','pending_approval','0e94f508-62ed-4beb-a856-d96f324a4994',NULL,'2026-10-04 09:00:00+03',NULL,NULL),
 ('30000000-0000-4000-8000-000000000002','a0000000-0000-4000-8000-000000000005','407eeb7b-7942-410f-a28e-68287fe0fb14',NULL,449.99,'Eligible refund for delivered monitor.','completed','0e94f508-62ed-4beb-a856-d96f324a4994','aab4d793-8c91-40d1-b183-c2c4a207abbc','2026-10-04 11:00:00+03','2026-10-04 12:00:00+03','2026-10-05 10:00:00+03');
