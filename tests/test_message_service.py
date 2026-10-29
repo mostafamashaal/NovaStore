@@ -5,6 +5,7 @@ import pytest
 
 from src.services.message_service import (
     MessageService,
+    TicketAgentReplyForbiddenError,
     TicketReplyNotAllowedError,
 )
 
@@ -111,4 +112,52 @@ def test_create_customer_reply_translates_value_error(repositories):
             customer_id=uuid4(),
             sender_user_id=uuid4(),
             content="I have another question.",
+        )
+
+
+def test_create_support_agent_reply_rejects_customer(repositories):
+    service, message_repository, _ = repositories
+
+    with pytest.raises(TicketAgentReplyForbiddenError):
+        service.create_support_agent_reply(
+            ticket_id=uuid4(),
+            sender_user_id=uuid4(),
+            sender_role="customer",
+            content="Please help.",
+        )
+
+    message_repository.create_support_agent_reply.assert_not_called()
+
+
+def test_create_support_agent_reply_rejects_unassigned_agent(repositories):
+    service, message_repository, _ = repositories
+    message_repository.create_support_agent_reply.side_effect = (
+        PermissionError("Support agents can reply only to tickets assigned to them.")
+    )
+
+    with pytest.raises(TicketAgentReplyForbiddenError, match="assigned to them"):
+        service.create_support_agent_reply(
+            ticket_id=uuid4(),
+            sender_user_id=uuid4(),
+            sender_role="support_agent",
+            content="I will help.",
+        )
+
+    message_repository.create_support_agent_reply.assert_called_once()
+
+
+def test_create_support_agent_reply_translates_inactive_ticket_error(
+    repositories,
+):
+    service, message_repository, _ = repositories
+    message_repository.create_support_agent_reply.side_effect = ValueError(
+        "Support agents cannot reply to resolved or closed tickets."
+    )
+
+    with pytest.raises(TicketReplyNotAllowedError, match="resolved or closed"):
+        service.create_support_agent_reply(
+            ticket_id=uuid4(),
+            sender_user_id=uuid4(),
+            sender_role="admin",
+            content="I will help.",
         )

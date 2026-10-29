@@ -281,3 +281,110 @@ def test_create_customer_reply_rolls_back_when_message_flush_fails(
     assert db.flush.call_count == 2
     db.commit.assert_not_called()
     db.rollback.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("is_admin", "assigned_to_sender"),
+    [
+        (False, True),
+        (True, False),
+    ],
+)
+def test_create_support_agent_reply_allows_authorized_sender(
+    db,
+    repository,
+    is_admin,
+    assigned_to_sender,
+):
+    ticket_id = uuid4()
+    customer_id = uuid4()
+    sender_user_id = uuid4()
+
+    ticket = MagicMock()
+    ticket.id = ticket_id
+    ticket.customer_id = customer_id
+    ticket.status = "open"
+    ticket.conversation_id = None
+    ticket.assigned_agent_id = (
+        sender_user_id if assigned_to_sender else uuid4()
+    )
+
+    db.scalars.return_value.first.return_value = ticket
+
+    result = repository.create_support_agent_reply(
+        ticket_id=ticket_id,
+        sender_user_id=sender_user_id,
+        is_admin=is_admin,
+        content="I am looking into your issue.",
+    )
+
+    added_objects = [call.args[0] for call in db.add.call_args_list]
+    conversations = [
+        item for item in added_objects if isinstance(item, Conversation)
+    ]
+    messages = [
+        item for item in added_objects if isinstance(item, Message)
+    ]
+
+    assert result is messages[0]
+    assert len(conversations) == 1
+    assert len(messages) == 1
+    assert messages[0].sender_type == "support_agent"
+    assert messages[0].sender_user_id == sender_user_id
+    assert messages[0].content == "I am looking into your issue."
+
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(result)
+    db.rollback.assert_not_called()
+
+
+def test_create_support_agent_reply_rejects_unassigned_agent(
+    db,
+    repository,
+):
+    ticket = MagicMock()
+    ticket.status = "open"
+    ticket.conversation_id = None
+    ticket.assigned_agent_id = uuid4()
+
+    db.scalars.return_value.first.return_value = ticket
+
+    with pytest.raises(PermissionError, match="assigned to them"):
+        repository.create_support_agent_reply(
+            ticket_id=uuid4(),
+            sender_user_id=uuid4(),
+            is_admin=False,
+            content="I will help.",
+        )
+
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
+
+
+@pytest.mark.parametrize("ticket_status", ["resolved", "closed"])
+def test_create_support_agent_reply_rejects_inactive_ticket(
+    db,
+    repository,
+    ticket_status,
+):
+    sender_user_id = uuid4()
+
+    ticket = MagicMock()
+    ticket.status = ticket_status
+    ticket.conversation_id = None
+    ticket.assigned_agent_id = sender_user_id
+
+    db.scalars.return_value.first.return_value = ticket
+
+    with pytest.raises(ValueError, match="resolved or closed"):
+        repository.create_support_agent_reply(
+            ticket_id=uuid4(),
+            sender_user_id=sender_user_id,
+            is_admin=False,
+            content="I will help.",
+        )
+
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()

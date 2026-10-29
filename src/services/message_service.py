@@ -59,3 +59,33 @@ class MessageService:
             )
         except ValueError as exc:
             raise TicketReplyNotAllowedError(str(exc)) from exc
+
+    def create_support_agent_reply(
+        self,
+        *,
+        ticket_id: UUID,
+        sender_user_id: UUID,
+        sender_role: str,
+        content: str,
+    ):
+        """Create a reply from an authorized support agent or admin."""
+        if sender_role not in {"support_agent", "admin"}:
+            raise TicketAgentReplyForbiddenError(
+                "Only support agents and admins can reply through this endpoint."
+            )
+
+        try:
+            return self.message_repository.create_support_agent_reply(
+                ticket_id=ticket_id,
+                sender_user_id=sender_user_id,
+                is_admin=sender_role == "admin",
+                content=content,
+            )
+        except PermissionError as exc:
+            raise TicketAgentReplyForbiddenError(str(exc)) from exc
+        except ValueError as exc:
+            raise TicketReplyNotAllowedError(str(exc)) from exc
+
+
+class TicketAgentReplyForbiddenError(Exception):
+    """Raised when a user is not authorized to reply as a support agent."""

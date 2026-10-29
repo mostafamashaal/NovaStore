@@ -105,3 +105,83 @@ class MessageRepository:
         except Exception:
             self.db.rollback()
             raise
+
+    def create_support_agent_reply(
+        self,
+        *,
+        ticket_id: UUID,
+        sender_user_id: UUID,
+        is_admin: bool,
+        content: str,
+    ) -> Message | None:
+        """Create a support reply after checking ticket access and status.
+
+        Returns None if the ticket does not exist.
+        The ticket, conversation, and message changes are committed together.
+        """
+        try:
+            statement = (
+                select(Ticket)
+                .where(Ticket.id == ticket_id)
+                .with_for_update()
+            )
+            ticket = self.db.scalars(statement).first()
+
+            if ticket is None:
+                return None
+
+            if not is_admin and ticket.assigned_agent_id != sender_user_id:
+                raise PermissionError(
+                    "Support agents can reply only to tickets assigned to them."
+                )
+
+            if ticket.status in {"resolved", "closed"}:
+                raise ValueError(
+                    "Support agents cannot reply to resolved or closed tickets."
+                )
+
+            if ticket.conversation_id is not None:
+                conversation = self.db.get(
+                    Conversation,
+                    ticket.conversation_id,
+                )
+
+                if conversation is None:
+                    raise RuntimeError(
+                        "Ticket references a conversation that does not exist."
+                    )
+
+                if conversation.customer_id != ticket.customer_id:
+                    raise RuntimeError(
+                        "Ticket conversation does not belong to this customer."
+                    )
+            else:
+                conversation = Conversation(
+                    id=uuid4(),
+                    customer_id=ticket.customer_id,
+                    status="open",
+                )
+                self.db.add(conversation)
+                self.db.flush()
+                ticket.conversation_id = conversation.id
+
+            message = Message(
+                id=uuid4(),
+                conversation_id=conversation.id,
+                sender_type="support_agent",
+                sender_user_id=sender_user_id,
+                content=content,
+            )
+            self.db.add(message)
+            self.db.flush()
+
+            conversation.updated_at = message.created_at
+
+            self.db.commit()
+            self.db.refresh(message)
+
+            return message
+
+        except Exception:
+            self.db.rollback()
+            raise
