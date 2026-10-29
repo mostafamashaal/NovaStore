@@ -70,3 +70,24 @@ class TicketRepository:
             raise
 
         return ticket
+
+    def update_status(
+        self,
+        ticket: Ticket,
+        status: str,
+        resolved_at: datetime | None,
+    ) -> Ticket:
+        """Update a ticket's status and persist the change."""
+        try:
+            ticket.status = status
+            ticket.updated_at = datetime.now(timezone.utc)
+            ticket.resolved_at = resolved_at
+
+            self.session.commit()
+            self.session.refresh(ticket)
+
+        except Exception:
+            self.session.rollback()
+            raise
+
+        return ticket

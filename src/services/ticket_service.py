@@ -5,6 +5,10 @@ from src.models.ticket import Ticket
 from src.repositories.ticket_repository import TicketRepository
 
 
+class TicketStatusTransitionError(Exception):
+    """Raised when a requested ticket status transition is not allowed."""
+
+
 class TicketService:
     """Business logic for customer support tickets."""
 
@@ -41,4 +45,45 @@ class TicketService:
             priority=ticket_data.priority,
             subject=ticket_data.subject,
             description=ticket_data.description,
+        )
+
+    def update_ticket_status_for_customer(
+        self,
+        ticket_id: UUID,
+        customer_id: UUID,
+        requested_status: str,
+    ) -> Ticket | None:
+        """Update a customer's ticket when the transition is permitted."""
+        ticket = self.ticket_repository.get_by_id_for_customer(
+            ticket_id=ticket_id,
+            customer_id=customer_id,
+        )
+
+        if ticket is None:
+            return None
+
+        allowed_transitions = {
+            "open": {"closed"},
+            "in_progress": {"closed"},
+            "waiting_customer": {"closed"},
+            "resolved": {"closed", "open"},
+            "closed": set(),
+        }
+
+        if requested_status not in allowed_transitions.get(ticket.status, set()):
+            raise TicketStatusTransitionError(
+                f"Cannot change ticket status from '{ticket.status}' "
+                f"to '{requested_status}'."
+            )
+
+        # Preserve the resolution timestamp when closing a resolved ticket.
+        # Clear it when reopening the ticket.
+        resolved_at = (
+            None if requested_status == "open" else ticket.resolved_at
+        )
+
+        return self.ticket_repository.update_status(
+            ticket=ticket,
+            status=requested_status,
+            resolved_at=resolved_at,
         )

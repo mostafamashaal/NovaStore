@@ -490,3 +490,152 @@ def test_create_my_ticket_requires_authentication(
 
     assert response.status_code == 401
     db.scalar.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("current_status", "requested_status", "expected_status"),
+    [
+        ("open", "closed", 200),
+        ("in_progress", "closed", 200),
+        ("waiting_customer", "closed", 200),
+        ("resolved", "closed", 200),
+        ("resolved", "open", 200),
+    ],
+)
+def test_update_my_ticket_status_returns_updated_ticket(
+    authenticated_customer_tickets,
+    monkeypatch,
+    current_status,
+    requested_status,
+    expected_status,
+):
+    client, db, user, customer = authenticated_customer_tickets
+    ticket = make_ticket(customer.id)
+    ticket.status = current_status
+
+    if current_status == "resolved":
+        ticket.resolved_at = datetime(2026, 10, 17, tzinfo=timezone.utc)
+
+    db.scalar.return_value = customer
+
+    def fake_update_status(
+        repository,
+        *,
+        ticket_id,
+        customer_id,
+        requested_status,
+    ):
+        assert ticket_id == ticket.id
+        assert customer_id == customer.id
+        assert requested_status in {"open", "closed"}
+
+        ticket.status = requested_status
+        if requested_status == "open":
+            ticket.resolved_at = None
+        ticket.updated_at = datetime(2026, 10, 20, tzinfo=timezone.utc)
+        return ticket
+
+    monkeypatch.setattr(
+        "src.services.ticket_service.TicketService."
+        "update_ticket_status_for_customer",
+        fake_update_status,
+    )
+
+    response = client.patch(
+        f"/customers/me/tickets/{ticket.id}/status",
+        json={"status": requested_status},
+    )
+
+    assert response.status_code == expected_status
+    assert response.json()["status"] == requested_status
+    assert response.json()["updated_at"] == "2026-10-20T00:00:00Z"
+
+    if requested_status == "open":
+        assert response.json()["resolved_at"] is None
+
+
+@pytest.mark.parametrize("invalid_status", ["in_progress", "waiting_customer", "resolved"])
+def test_update_my_ticket_status_rejects_internal_statuses(
+    authenticated_customer_tickets,
+    invalid_status,
+):
+    client, db, user, customer = authenticated_customer_tickets
+    db.scalar.return_value = customer
+
+    response = client.patch(
+        f"/customers/me/tickets/{uuid4()}/status",
+        json={"status": invalid_status},
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_my_ticket_status_returns_409_for_invalid_transition(
+    authenticated_customer_tickets,
+    monkeypatch,
+):
+    client, db, user, customer = authenticated_customer_tickets
+    ticket = make_ticket(customer.id)
+    ticket.status = "closed"
+    db.scalar.return_value = customer
+
+    def fake_update_status(
+        service,
+        *,
+        ticket_id,
+        customer_id,
+        requested_status,
+    ):
+        from src.services.ticket_service import TicketStatusTransitionError
+
+        raise TicketStatusTransitionError(
+            "Cannot change ticket status from 'closed' to 'open'."
+        )
+
+    monkeypatch.setattr(
+        "src.services.ticket_service.TicketService."
+        "update_ticket_status_for_customer",
+        fake_update_status,
+    )
+
+    response = client.patch(
+        f"/customers/me/tickets/{ticket.id}/status",
+        json={"status": "open"},
+    )
+
+    assert response.status_code == 409
+
+
+def test_update_my_ticket_status_returns_404_for_missing_ticket(
+    authenticated_customer_tickets,
+    monkeypatch,
+):
+    client, db, user, customer = authenticated_customer_tickets
+    db.scalar.return_value = customer
+
+    monkeypatch.setattr(
+        "src.services.ticket_service.TicketService."
+        "update_ticket_status_for_customer",
+        lambda service, **kwargs: None,
+    )
+
+    response = client.patch(
+        f"/customers/me/tickets/{uuid4()}/status",
+        json={"status": "closed"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Ticket not found"
+
+
+def test_update_my_ticket_status_requires_authentication(
+    customer_tickets_api_client,
+):
+    client, db = customer_tickets_api_client
+
+    response = client.patch(
+        f"/customers/me/tickets/{uuid4()}/status",
+        json={"status": "closed"},
+    )
+
+    assert response.status_code == 401

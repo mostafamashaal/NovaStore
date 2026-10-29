@@ -52,3 +52,11 @@ class TicketResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     resolved_at: datetime | None
+
+
+class TicketStatusUpdateRequest(BaseModel):
+    """Validated input for a customer-requested ticket status change."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["open", "closed"]

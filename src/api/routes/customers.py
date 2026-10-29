@@ -13,7 +13,11 @@ from src.api.schemas.order_status_history import (
 )
 from src.api.schemas.refund import RefundResponse
 from src.api.schemas.shipment import ShipmentResponse
-from src.api.schemas.ticket import TicketCreateRequest, TicketResponse
+from src.api.schemas.ticket import (
+    TicketCreateRequest,
+    TicketResponse,
+    TicketStatusUpdateRequest,
+)
 from src.api.schemas.message import MessageCreateRequest, MessageResponse
 from src.db.dependencies import get_db
 from src.models.user import User
@@ -28,7 +32,10 @@ from src.services.customer_service import CustomerService
 from src.services.order_service import OrderService
 from src.services.refund_service import RefundService
 from src.services.shipment_service import ShipmentService
-from src.services.ticket_service import TicketService
+from src.services.ticket_service import (
+    TicketService,
+    TicketStatusTransitionError,
+)
 from src.services.message_service import (
     MessageService,
     TicketReplyNotAllowedError,
@@ -422,3 +429,47 @@ def create_ticket_message(
         )
 
     return message
+
+@router.patch(
+    "/me/tickets/{ticket_id}/status",
+    response_model=TicketResponse,
+)
+def update_my_ticket_status(
+    ticket_id: UUID,
+    payload: TicketStatusUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TicketResponse:
+    """Close or reopen a ticket belonging to the authenticated customer."""
+    customer_repository = CustomerRepository(db)
+    customer_service = CustomerService(customer_repository)
+
+    customer = customer_service.get_customer_by_user_id(current_user.id)
+
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer profile not found",
+        )
+
+    ticket_service = TicketService(TicketRepository(db))
+
+    try:
+        ticket = ticket_service.update_ticket_status_for_customer(
+            ticket_id=ticket_id,
+            customer_id=customer.id,
+            requested_status=payload.status,
+        )
+    except TicketStatusTransitionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    return ticket
