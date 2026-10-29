@@ -14,6 +14,7 @@ from src.api.schemas.order_status_history import (
 from src.api.schemas.refund import RefundResponse
 from src.api.schemas.shipment import ShipmentResponse
 from src.api.schemas.ticket import TicketCreateRequest, TicketResponse
+from src.api.schemas.message import MessageCreateRequest, MessageResponse
 from src.db.dependencies import get_db
 from src.models.user import User
 from src.repositories.customer_repository import CustomerRepository
@@ -21,12 +22,17 @@ from src.repositories.order_repository import OrderRepository
 from src.repositories.refund_repository import RefundRepository
 from src.repositories.shipment_repository import ShipmentRepository
 from src.repositories.ticket_repository import TicketRepository
+from src.repositories.message_repository import MessageRepository
 from src.security.dependencies import get_current_user
 from src.services.customer_service import CustomerService
 from src.services.order_service import OrderService
 from src.services.refund_service import RefundService
 from src.services.shipment_service import ShipmentService
 from src.services.ticket_service import TicketService
+from src.services.message_service import (
+    MessageService,
+    TicketReplyNotAllowedError,
+)
 
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
@@ -328,3 +334,91 @@ def read_my_ticket(
         )
 
     return ticket
+
+
+@router.get(
+    "/me/tickets/{ticket_id}/messages",
+    response_model=list[MessageResponse],
+)
+def list_ticket_messages(
+    ticket_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[MessageResponse]:
+    """List messages belonging to the authenticated customer's ticket."""
+    customer_repository = CustomerRepository(db)
+    customer_service = CustomerService(customer_repository)
+    customer = customer_service.get_customer_by_user_id(current_user.id)
+
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer profile not found",
+        )
+
+    message_service = MessageService(
+        message_repository=MessageRepository(db),
+        ticket_repository=TicketRepository(db),
+    )
+
+    messages = message_service.list_messages_for_ticket(
+        ticket_id=ticket_id,
+        customer_id=customer.id,
+    )
+
+    if messages is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    return messages
+
+
+@router.post(
+    "/me/tickets/{ticket_id}/messages",
+    response_model=MessageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_ticket_message(
+    ticket_id: UUID,
+    payload: MessageCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MessageResponse:
+    """Create a customer reply to a support ticket."""
+    customer_repository = CustomerRepository(db)
+    customer_service = CustomerService(customer_repository)
+    customer = customer_service.get_customer_by_user_id(current_user.id)
+
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer profile not found",
+        )
+
+    message_service = MessageService(
+        message_repository=MessageRepository(db),
+        ticket_repository=TicketRepository(db),
+    )
+
+    try:
+        message = message_service.create_customer_reply(
+            ticket_id=ticket_id,
+            customer_id=customer.id,
+            sender_user_id=current_user.id,
+            content=payload.content,
+        )
+    except TicketReplyNotAllowedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+    if message is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    return message
