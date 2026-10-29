@@ -59,15 +59,22 @@ class MessageRepository:
                     "Customers cannot reply to resolved or closed tickets."
                 )
 
-            conversation = None
-
             if ticket.conversation_id is not None:
                 conversation = self.db.get(
                     Conversation,
                     ticket.conversation_id,
                 )
 
-            if conversation is None:
+                if conversation is None:
+                    raise RuntimeError(
+                        "Ticket references a conversation that does not exist."
+                    )
+
+                if conversation.customer_id != customer_id:
+                    raise RuntimeError(
+                        "Ticket conversation does not belong to this customer."
+                    )
+            else:
                 conversation = Conversation(
                     id=uuid4(),
                     customer_id=customer_id,
