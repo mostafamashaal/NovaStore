@@ -4,6 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from src.api.schemas.message import MessageCreateRequest, MessageResponse
+from src.api.schemas.ticket import (
+    TicketAssignmentRequest,
+    TicketAssignmentResponse,
+)
 from src.db.dependencies import get_db
 from src.models.user import User
 from src.repositories.message_repository import MessageRepository
@@ -13,6 +17,10 @@ from src.services.message_service import (
     MessageService,
     TicketAgentReplyForbiddenError,
     TicketReplyNotAllowedError,
+)
+from src.services.ticket_service import (
+    InvalidSupportAgentError,
+    TicketService,
 )
 
 router = APIRouter(prefix="/support", tags=["Support"])
@@ -60,3 +68,42 @@ def create_support_ticket_message(
         )
 
     return message
+
+
+@router.patch(
+    "/tickets/{ticket_id}/assignment",
+    response_model=TicketAssignmentResponse,
+)
+def assign_support_ticket(
+    ticket_id: UUID,
+    payload: TicketAssignmentRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TicketAssignmentResponse:
+    """Allow admins to assign, reassign, or unassign support tickets."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can assign support tickets.",
+        )
+
+    ticket_service = TicketService(TicketRepository(db))
+
+    try:
+        ticket = ticket_service.assign_ticket(
+            ticket_id=ticket_id,
+            agent_id=payload.agent_id,
+        )
+    except InvalidSupportAgentError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    return ticket

@@ -87,3 +87,26 @@ class TicketService:
             status=requested_status,
             resolved_at=resolved_at,
         )
+
+    def assign_ticket(
+        self,
+        ticket_id: UUID,
+        agent_id: UUID | None,
+    ) -> Ticket | None:
+        """Assign, reassign, or unassign a support ticket."""
+        if agent_id is not None:
+            agent = self.ticket_repository.get_active_support_agent(agent_id)
+
+            if agent is None:
+                raise InvalidSupportAgentError(
+                    "The requested user is not an active support agent."
+                )
+
+        return self.ticket_repository.assign_agent(
+            ticket_id=ticket_id,
+            agent_id=agent_id,
+        )
+
+
+class InvalidSupportAgentError(Exception):
+    """Raised when the requested assignee is not an eligible support agent."""

@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 
 from src.models.ticket import Ticket
+from src.models.user import User
 from src.repositories.ticket_repository import TicketRepository
 
 
@@ -119,3 +120,84 @@ def test_create_rolls_back_when_sequence_lookup_fails():
     session.rollback.assert_called_once_with()
     session.add.assert_not_called()
     session.commit.assert_not_called()
+
+
+def test_get_active_support_agent_returns_eligible_agent():
+    repository, session = make_repository()
+    agent = MagicMock(spec=User)
+    agent_id = uuid4()
+    session.scalar.return_value = agent
+
+    result = repository.get_active_support_agent(agent_id)
+
+    assert result is agent
+    session.scalar.assert_called_once()
+
+
+def test_get_active_support_agent_returns_none_when_ineligible():
+    repository, session = make_repository()
+    session.scalar.return_value = None
+
+    result = repository.get_active_support_agent(uuid4())
+
+    assert result is None
+    session.scalar.assert_called_once()
+
+
+def test_assign_agent_persists_assignment():
+    repository, session = make_repository()
+    ticket = MagicMock(spec=Ticket)
+    ticket.assigned_agent_id = None
+    ticket_id = uuid4()
+    agent_id = uuid4()
+    session.scalar.return_value = ticket
+
+    result = repository.assign_agent(ticket_id, agent_id)
+
+    assert result is ticket
+    assert ticket.assigned_agent_id == agent_id
+    assert ticket.updated_at is not None
+    session.scalar.assert_called_once()
+    session.commit.assert_called_once_with()
+    session.refresh.assert_called_once_with(ticket)
+    session.rollback.assert_not_called()
+
+
+def test_assign_agent_can_unassign_ticket():
+    repository, session = make_repository()
+    ticket = MagicMock(spec=Ticket)
+    ticket.assigned_agent_id = uuid4()
+    session.scalar.return_value = ticket
+
+    result = repository.assign_agent(ticket.id, None)
+
+    assert result is ticket
+    assert ticket.assigned_agent_id is None
+    session.commit.assert_called_once_with()
+    session.refresh.assert_called_once_with(ticket)
+
+
+def test_assign_agent_returns_none_when_ticket_does_not_exist():
+    repository, session = make_repository()
+    session.scalar.return_value = None
+
+    result = repository.assign_agent(uuid4(), uuid4())
+
+    assert result is None
+    session.commit.assert_not_called()
+    session.refresh.assert_not_called()
+    session.rollback.assert_not_called()
+
+
+def test_assign_agent_rolls_back_when_commit_fails():
+    repository, session = make_repository()
+    ticket = MagicMock(spec=Ticket)
+    session.scalar.return_value = ticket
+    session.commit.side_effect = RuntimeError("Database commit failed")
+
+    with pytest.raises(RuntimeError, match="Database commit failed"):
+        repository.assign_agent(uuid4(), uuid4())
+
+    session.commit.assert_called_once_with()
+    session.rollback.assert_called_once_with()
+    session.refresh.assert_not_called()

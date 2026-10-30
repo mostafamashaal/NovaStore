@@ -60,3 +60,22 @@ class TicketStatusUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["open", "closed"]
+
+
+class TicketAssignmentRequest(BaseModel):
+    """Input for assigning, reassigning, or unassigning a ticket."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: UUID | None
+
+
+class TicketAssignmentResponse(BaseModel):
+    """Staff-facing result of a ticket assignment operation."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    ticket_number: str
+    assigned_agent_id: UUID | None
+    updated_at: datetime

@@ -7,6 +7,7 @@ import pytest
 from src.models.ticket import Ticket
 from src.repositories.ticket_repository import TicketRepository
 from src.services.ticket_service import (
+    InvalidSupportAgentError,
     TicketService,
     TicketStatusTransitionError,
 )
@@ -128,3 +129,62 @@ def test_update_ticket_status_returns_none_for_missing_or_unowned_ticket(
 
     assert result is None
     repository.update_status.assert_not_called()
+
+
+def test_assign_ticket_accepts_active_support_agent(ticket_service):
+    service, repository = ticket_service
+    ticket_id = uuid4()
+    agent_id = uuid4()
+    agent = MagicMock()
+    ticket = make_ticket("open")
+
+    repository.get_active_support_agent.return_value = agent
+    repository.assign_agent.return_value = ticket
+
+    result = service.assign_ticket(ticket_id, agent_id)
+
+    assert result is ticket
+    repository.get_active_support_agent.assert_called_once_with(agent_id)
+    repository.assign_agent.assert_called_once_with(
+        ticket_id=ticket_id,
+        agent_id=agent_id,
+    )
+
+
+def test_assign_ticket_rejects_ineligible_agent(ticket_service):
+    service, repository = ticket_service
+    repository.get_active_support_agent.return_value = None
+
+    with pytest.raises(InvalidSupportAgentError):
+        service.assign_ticket(uuid4(), uuid4())
+
+    repository.assign_agent.assert_not_called()
+
+
+def test_assign_ticket_allows_unassignment_without_agent_validation(
+    ticket_service,
+):
+    service, repository = ticket_service
+    ticket_id = uuid4()
+    ticket = make_ticket("open")
+    repository.assign_agent.return_value = ticket
+
+    result = service.assign_ticket(ticket_id, None)
+
+    assert result is ticket
+    repository.get_active_support_agent.assert_not_called()
+    repository.assign_agent.assert_called_once_with(
+        ticket_id=ticket_id,
+        agent_id=None,
+    )
+
+
+def test_assign_ticket_returns_none_when_ticket_is_missing(ticket_service):
+    service, repository = ticket_service
+    agent_id = uuid4()
+    repository.get_active_support_agent.return_value = MagicMock()
+    repository.assign_agent.return_value = None
+
+    result = service.assign_ticket(uuid4(), agent_id)
+
+    assert result is None

@@ -5,6 +5,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from src.models.ticket import Ticket
+from src.models.user import User
 
 
 class TicketRepository:
@@ -91,3 +92,42 @@ class TicketRepository:
             raise
 
         return ticket
+
+
+    def get_active_support_agent(self, agent_id: UUID) -> User | None:
+        """Return an active support agent, or None if the user is ineligible."""
+        statement = select(User).where(
+            User.id == agent_id,
+            User.role == "support_agent",
+            User.is_active.is_(True),
+        )
+        return self.session.scalar(statement)
+
+    def assign_agent(
+        self,
+        ticket_id: UUID,
+        agent_id: UUID | None,
+    ) -> Ticket | None:
+        """Assign, reassign, or unassign a ticket and persist the change."""
+        try:
+            statement = (
+                select(Ticket)
+                .where(Ticket.id == ticket_id)
+                .with_for_update()
+            )
+            ticket = self.session.scalar(statement)
+
+            if ticket is None:
+                return None
+
+            ticket.assigned_agent_id = agent_id
+            ticket.updated_at = datetime.now(timezone.utc)
+
+            self.session.commit()
+            self.session.refresh(ticket)
+
+            return ticket
+
+        except Exception:
+            self.session.rollback()
+            raise
